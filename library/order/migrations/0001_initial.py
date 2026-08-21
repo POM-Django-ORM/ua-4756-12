@@ -7,6 +7,8 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
+        ('authentication', '0001_initial'),
+        ('book', '0001_initial'),
     ]
 
     operations = [
@@ -14,6 +16,11 @@ class Migration(migrations.Migration):
             name='Order',
             fields=[
                 ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                ('created_at', models.DateTimeField(auto_now_add=True)),
+                ('end_at', models.DateTimeField(blank=True, null=True)),
+                ('plated_end_at', models.DateTimeField()),
+                ('book', models.ForeignKey(on_delete=models.deletion.CASCADE, related_name='orders', to='book.book')),
+                ('user', models.ForeignKey(on_delete=models.deletion.CASCADE, related_name='orders', to='authentication.customuser')),
             ],
         ),
     ]

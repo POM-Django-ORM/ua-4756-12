@@ -15,18 +15,28 @@ class Book(models.Model):
         param authors: list of Authors
         type authors: list->Author
     """
+    name = models.CharField(max_length=128)
+    description = models.TextField(blank=True)
+    count = models.IntegerField(default=10)
+    authors = models.ManyToManyField("author.Author", blank=True, related_name="books")
 
     def __str__(self):
         """
         Magic method is redefined to show all information about Book.
         :return: book id, book name, book description, book count, book authors
         """
+        author_ids = list(self.authors.values_list("id", flat=True))
+        return (
+            f"'id': {self.id}, 'name': '{self.name}', 'description': '{self.description}', "
+            f"'count': {self.count}, 'authors': {author_ids}"
+        )
 
     def __repr__(self):
         """
         This magic method is redefined to show class and id of Book object.
         :return: class, id
         """
+        return f"{self.__class__.__name__}(id={self.id})"
 
     @staticmethod
     def get_by_id(book_id):
@@ -34,6 +44,10 @@ class Book(models.Model):
         :param book_id: SERIAL: the id of a Book to be found in the DB
         :return: book object or None if a book with such ID does not exist
         """
+        try:
+            return Book.objects.get(id=book_id)
+        except Book.DoesNotExist:
+            return None
 
     @staticmethod
     def delete_by_id(book_id):
@@ -42,6 +56,11 @@ class Book(models.Model):
         :type book_id: int
         :return: True if object existed in the db and was removed or False if it didn't exist
         """
+        book = Book.get_by_id(book_id)
+        if book is None:
+            return False
+        book.delete()
+        return True
 
     @staticmethod
     def create(name, description, count=10, authors=None):
@@ -56,6 +75,21 @@ class Book(models.Model):
         type authors: list->Author
         :return: a new book object which is also written into the DB
         """
+        if len(name) > 128:
+            return None
+        if count is not None and count < 0:
+            return None
+
+        if authors is None:
+            authors = []
+        if any(author.id is None for author in authors):
+            return None
+
+        book = Book(name=name, description=description, count=count)
+        book.save()
+        if authors:
+            book.authors.add(*authors)
+        return book
 
     def to_dict(self):
         """
@@ -69,6 +103,13 @@ class Book(models.Model):
         |   'authors': []
         | }
         """
+        return {
+            "id": self.id,
+            "name": self.name,
+            "description": self.description,
+            "count": self.count,
+            "authors": list(self.authors.values_list("id", flat=True)),
+        }
 
     def update(self, name=None, description=None, count=None):
         """
@@ -81,6 +122,13 @@ class Book(models.Model):
         type count: int default=10
         :return: None
         """
+        if name is not None and len(name) <= 128:
+            self.name = name
+        if description is not None:
+            self.description = description
+        if count is not None and count >= 0:
+            self.count = count
+        self.save()
 
     def add_authors(self, authors):
         """
@@ -88,6 +136,9 @@ class Book(models.Model):
         param authors: list authors
         :return: None
         """
+        valid_authors = [author for author in authors if author.id is not None]
+        if valid_authors:
+            self.authors.add(*valid_authors)
 
     def remove_authors(self, authors):
         """
@@ -95,9 +146,13 @@ class Book(models.Model):
         param authors: list authors
         :return: None
         """
+        valid_authors = [author for author in authors if author.id is not None]
+        if valid_authors:
+            self.authors.remove(*valid_authors)
 
     @staticmethod
     def get_all():
         """
         returns data for json request with QuerySet of all books
         """
+        return list(Book.objects.all())
